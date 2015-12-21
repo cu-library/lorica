@@ -9,14 +9,21 @@ authorization headers for the Summon API.
 package main
 
 import (
-    "fmt"
-    "flag"
-    l "github.com/cu-library/lorica/loglevel"
-    "log"
-    "os"
-    "strings"
-    "net/http"
-    "time"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
+	"encoding/json"
+	"flag"
+	"fmt"
+	l "github.com/cu-library/lorica/loglevel"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
+	"sort"
+	"strings"
+	"time"
 )
 
 const (
@@ -39,8 +46,8 @@ var (
 	accessID       = flag.String("accessid", "", "Access ID")
 	secretKey      = flag.String("secretkey", "", "Secret Key")
 	allowedOrigins = flag.String("allowedorigins", "", "A list of allowed origins for CORS, delimited by the ; character. ")
-	logLevel       = flag.String("loglevel", "warn", "The maximum log level which will be logged. error < warn < info < debug < trace. "
-		                                       + "For example, trace will log everything, info will log info, warn, and error.")
+	logLevel       = flag.String("loglevel", "warn", "The maximum log level which will be logged. error < warn < info < debug < trace. "+
+		"For example, trace will log everything, info will log info, warn, and error.")
 )
 
 func init() {
@@ -66,43 +73,46 @@ func main() {
 	overrideUnsetFlagsFromEnvironmentVariables()
 
 	// Set the loglevel in the loglevel subpackage
-	l.Set(l.ParseLogLevel(*logLevel))
+	level, err := l.ParseLogLevel(*logLevel)
+	if err != nil {
+		log.Fatal("FATAL: Unable to parse log level.")
+	}
+	l.Set(level)
 
 	// Greet the user
-    l.Log(l.InfoMessage, "Starting Lorica")
+	l.Log(l.InfoMessage, "Starting Lorica")
 	l.Log(l.InfoMessage, "Serving on address: "+*address)
-	l.Log(l.InfoMessage, "Connecting to API URL: "+*apiURL)
-	l.Log(l.InfoMessage, "Using ACAO header: "+*headerACAO)
+	l.Log(l.InfoMessage, "Using API URL: "+*apiURL)
+	l.Log(l.InfoMessage, "Allowed Origins for CORS: "+*allowedOrigins)
 
 	if *accessID == "" {
 		log.Fatal("FATAL: An access ID for the Summon API is required.")
 	} else if *secretKey == "" {
 		log.Fatal("FATAL: An secret key for the Summon API is required.")
-	} else if *allowedOrigins == "" {
-		log.Fatal("FATAL: A list of allowed origins is required")
-	}
-	else if *allowedOrigins == "*" {
-		log.Fatal("FATAL: A defined list of allowed origins is required. ")
+	} else if *allowedOrigins == "*" {
+		log.Fatal("FATAL: A defined list of allowed origins is required.")
 	}
 
 	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/buildheader", buildheaderHandler)	
+	http.HandleFunc("/buildheader", buildheaderHandler)
 
-
-	log.Fatalf("FATAL: %v", server.ListenAndServe(*address, nil))
+	log.Fatalf("FATAL: %v", http.ListenAndServe(*address, nil))
 }
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {	
+func homeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		sendErrorToClient(w, http.StatusNotFound, "")
 		return
 	}
 	w.Header().Set("Content-Type", "text/html")
-	l.Log("Home Handler visited.", l.TraceMessage)
+	l.Log(l.TraceMessage, "Home Handler visited.")
 	fmt.Fprint(w, "<html><head></head><body><h1>Welcome to Lorica.</h1></body></html>")
 }
 
 func buildheaderHandler(w http.ResponseWriter, r *http.Request) {
+
+	setACAOHeader(w, r, *allowedOrigins)
+
 	// We don't need to worry about Preflight requests, since
 	// our server only supports Simple Cross-Origin Requests
 
@@ -111,89 +121,138 @@ func buildheaderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// This is a bit tricky. We're not looking at the 'Accept' header in the request.
+	// We're looking for a query value called accept.
 	accept := r.URL.Query().Get("accept")
 	if accept != "application/json" && accept != "application/xml" {
 		sendErrorToClient(w, http.StatusBadRequest, "Bad value for accept parameter.")
 		return
 	}
 
-	path :=  r.URL.Query().Get("path")
+	path := r.URL.Query().Get("path")
 	if path == "" {
-        sendErrorToClient(w, http.StatusBadRequest, "Path parameter required.")
+		sendErrorToClient(w, http.StatusBadRequest, "Path parameter required.")
 		return
 	}
 
-	//We have everything we need. Let's build the accept header.
-	idStringSlice := make([]string, 10)
-	idStringSlice = append(idStringSlice, accept)
-	idStringSlice = append(idStringSlice, time.Now().)
+	timestampRFC2616 := time.Now().UTC().Format(http.TimeFormat)
 
+	header := buildHeader(r.URL.Query(), accept, path, timestampRFC2616)
 
+	payload := struct {
+		TimestampRFC2616    string `json:"timestamprfc2616"`
+		AuthorizationHeader string `json:"authorizationheader"`
+	}{
+		timestampRFC2616,
+		header,
+	}
 
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		sendErrorToClient(w, http.StatusInternalServerError, "JSON encoding error.")
+		return
+	}
 
-
-
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonPayload)
 }
 
-func sendErrorToClient(w http.ResponseWriter, statuscode int, message string){
+func buildHeader(values url.Values, accept, path, timestampRFC2616 string) string {
+
+	var idStringSlice []string
+	idStringSlice = append(idStringSlice, accept)
+	idStringSlice = append(idStringSlice, timestampRFC2616)
+	idStringSlice = append(idStringSlice, *apiURL)
+	idStringSlice = append(idStringSlice, path)
+
+	// Sort by query parameter key and concatinate.
+	var queryKeys []string
+	var queryParams []string
+	for key := range values {
+		if key != "path" && key != "accept" {
+			queryKeys = append(queryKeys, key)
+		}
+	}
+	sort.Strings(queryKeys)
+	for _, key := range queryKeys {
+		queryParams = append(queryParams,
+			fmt.Sprintf("%v=%v", key, values.Get(key)))
+	}
+	idStringSlice = append(idStringSlice, strings.Join(queryParams, "&"))
+
+	l.Logf(l.DebugMessage, "Authorizing %v", idStringSlice)
+
+	// Make the id string from the slice of values
+	idString := strings.Join(idStringSlice, "\n") + "\n"
+
+	// Hash using sha1, then base64 encode.
+	hmacsha1 := hmac.New(sha1.New, []byte(*secretKey))
+	io.WriteString(hmacsha1, idString)
+	encodedHash := base64.StdEncoding.EncodeToString(hmacsha1.Sum(nil))
+
+	// Build the final auth header
+	return fmt.Sprintf("Summon %v;%v", *accessID, encodedHash)
+}
+
+func sendErrorToClient(w http.ResponseWriter, statuscode int, message string) {
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(statuscode)
-    fmt.Fprintf(w, "<html><head></head><body><pre>%v %v - %v</pre></body></html>", 
-    	           statuscode, http.StatusText(statuscode), message)
-    l.Logf(l.TraceMessage, "%v in buildheaderHandler, %v", statuscode, message)
+	fmt.Fprintf(w, "<html><head></head><body><pre>%v %v - %v</pre></body></html>",
+		statuscode, http.StatusText(statuscode), message)
+	l.Logf(l.ErrorMessage, "%v in buildheaderHandler, %v", statuscode, message)
 }
 
 // If any flags are not set, use environment variables to set them.
 func overrideUnsetFlagsFromEnvironmentVariables() {
 
-	// A map of pointers to unset flags. 
+	// A map of pointers to unset flags.
 	listOfUnsetFlags := make(map[*flag.Flag]bool)
 
 	// flag.Visit calls a function on "only those flags that have been set."
 	// flag.VisitAll calls a function on "all flags, even those not set."
 	// No way to ask for "only unset flags". So, we add all, then
-	// delete the set flags. 
+	// delete the set flags.
 
 	// First, visit all the flags, and add them to our map.
 	flag.VisitAll(func(f *flag.Flag) { listOfUnsetFlags[f] = true })
 
-	// Then delete the set flags. 
+	// Then delete the set flags.
 	flag.Visit(func(f *flag.Flag) { delete(listOfUnsetFlags, f) })
 
-    // Loop through our list of unset flags. 
-    // We don't care about the values in our map, only the keys. 
+	// Loop through our list of unset flags.
+	// We don't care about the values in our map, only the keys.
 	for k, _ := range listOfUnsetFlags {
 
-	    // Build the corresponding environment variable name for each flag.
+		// Build the corresponding environment variable name for each flag.
 		uppercaseName := strings.ToUpper(k.Name)
 		environmentVariableName := fmt.Sprintf("%v%v", EnvPrefix, uppercaseName)
 
-		// Look for the environment variable name. 
-		// If found, set the flag to that value. 
-		// If there's a problem setting the flag value, 
+		// Look for the environment variable name.
+		// If found, set the flag to that value.
+		// If there's a problem setting the flag value,
 		// there's a serious problem we can't recover from.
 		environmentVariableValue := os.Getenv(environmentVariableName)
 		if environmentVariableValue != "" {
 			err := k.Value.Set(environmentVariableValue)
 			if err != nil {
-				log.Fatalf("FATAL: Unable to set configuration option %v from environment variable %v, "
-					       + "which has a value of \"%v\"",
-					       k.Name, environmentVariableName, environmentVariableValue)
+				log.Fatalf("FATAL: Unable to set configuration option %v from environment variable %v, "+
+					"which has a value of \"%v\"",
+					k.Name, environmentVariableName, environmentVariableValue)
 			}
 		}
 	}
 }
 
-// Set the Access-Control-Allow-Origin   
-func setACAOHeader(w http.ResponseWriter, r *http.Request, headerACAO string) {
-	if headerACAO != "" {
-		possibleOrigins := strings.Split(headerConfig, ";")
+// Set the Access-Control-Allow-Origin
+func setACAOHeader(w http.ResponseWriter, r *http.Request, allowedOrigins string) {
+	if allowedOrigins != "" {
+		possibleOrigins := strings.Split(allowedOrigins, ";")
 		for _, okOrigin := range possibleOrigins {
 			okOrigin = strings.TrimSpace(okOrigin)
 			if (okOrigin != "") && (okOrigin == r.Header.Get("Origin")) {
 				w.Header().Set("Access-Control-Allow-Origin", okOrigin)
+				return
 			}
 		}
 	}
 }
-

@@ -52,7 +52,7 @@ func Log(messagelevel LogLevel, message interface{}) {
 }
 
 func Logf(messagelevel LogLevel, format string, a ...interface{}) {
-	Log(messagelevel, fmt.Sprintf(format, a), )
+	Log(messagelevel, fmt.Sprintf(format, a...))
 }
 
 func (level LogLevel) String() string {
