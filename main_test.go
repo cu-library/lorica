@@ -5,15 +5,15 @@
 package main
 
 import (
+	"encoding/json"
 	l "github.com/cu-library/lorica/loglevel"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"testing"
-	"encoding/json"
 	"strings"
+	"testing"
 )
 
 func init() {
@@ -195,7 +195,6 @@ func TestSetACAOHeaderNoConfig(t *testing.T) {
 		t.Error("Access-Control-Allow-Origin shouldn't be set.")
 	}
 }
-
 
 //Set the ACAO config to a single origin which doesn't match.
 func TestSetACAOHeaderNotMatchOnSingle(t *testing.T) {
