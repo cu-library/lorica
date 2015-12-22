@@ -110,7 +110,7 @@ func main() {
 // So, this handler also serves as a 404 handler.
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
-		sendError(w, http.StatusNotFound, "\U0001F613", "homeHandler")
+		sendError(w, http.StatusNotFound, fmt.Sprintf("%v not found, \U0001F613", r.URL.Path), "homeHandler")
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
