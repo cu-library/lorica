@@ -110,23 +110,6 @@ func TestBuildHeaderHandlerBadAcceptParam(t *testing.T) {
 	}
 }
 
-func TestBuildHeaderHandlerNoPathParam(t *testing.T) {
-	req, err := http.NewRequest("GET", "/buildheader?accept=application%2Fjson", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	w := httptest.NewRecorder()
-	buildheaderHandler(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Build header handler didn't return %v when no path query param provided.", http.StatusBadRequest)
-	}
-	if !strings.Contains(w.Body.String(), "Path parameter required") {
-		t.Error("Wrong error returned by build header handler.")
-	}
-}
-
 func TestBuildHeaderHandlerExpectedResults(t *testing.T) {
 	req, err := http.NewRequest("GET", "/buildheader?accept=application%2Fjson&path=%2Ftest", nil)
 	if err != nil {
