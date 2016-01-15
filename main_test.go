@@ -26,6 +26,11 @@ func TestProxyHanderPreflightCorrect(t *testing.T) {
 	}
 
 	req.Header.Add("Access-Control-Request-Method", "GET")
+	req.Header.Add("Origin", "http://test.com")
+
+	// Override the command line flags
+	allowedOriginsVal := "http://test.com"
+	allowedOrigins = &allowedOriginsVal
 
 	w := httptest.NewRecorder()
 	proxyHandler(w, req)

@@ -56,7 +56,7 @@ var (
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, "Lorica: A proxy for the Summon API\nVersion 0.2.1\n\n")
+		fmt.Fprint(os.Stderr, "Lorica: A proxy for the Summon API\nVersion 0.2.2\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "  The possible environment variables:")
 
@@ -120,7 +120,7 @@ func main() {
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	// If the Origin header is set, this might be a CORS request.
-	if r.Header.Get("Origin") == "" {
+	if r.Header.Get("Origin") != "" {
 		if r.Method == "OPTIONS" {
 			// If this is an OPTIONS request and the Access-Control-Request-Method
 			// header isn't set, it isn't accepted.
@@ -235,6 +235,8 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(proxiedHeader, apiResp.Header.Get(proxiedHeader))
 		}
 	}
+
+	l.Logf(l.TraceMessage, "Sending response to client with headers: %v", w.Header())
 
 	w.WriteHeader(apiResp.StatusCode)
 	io.Copy(w, apiResp.Body)
