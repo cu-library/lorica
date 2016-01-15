@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package lorica provides a web server which proxies 
+Package lorica provides a web server which proxies
 queries to the Summon API.
 */
 package main
@@ -35,8 +35,8 @@ const (
 	// The default log level
 	DefaultLogLevel = "WARN"
 
-	// The default summon api host
-	DefaultSummonAPIHost = "api.summon.serialssolutions.com"
+	// The default Summon API URL
+	DefaultSummonAPIURL = "http://api.summon.serialssolutions.com"
 
 	// The default number of seconds for the Access-Control-Max-Age header
 	DefaultMaxAge = "604800"
@@ -44,17 +44,19 @@ const (
 
 var (
 	address        = flag.String("address", DefaultAddress, "Address for the server to bind on.")
-	apiHost        = flag.String("summonapi", DefaultSummonAPIHost, "API host.")
+	apiURL         = flag.String("summonapi", DefaultSummonAPIURL, "Summon API URL.")
 	accessID       = flag.String("accessid", "", "Access ID")
 	secretKey      = flag.String("secretkey", "", "Secret Key")
-	allowedOrigins = flag.String("allowedorigins", "", "A list of allowed origins for CORS, delimited by the ; character. ")
-	logLevel       = flag.String("loglevel", "warn", "The maximum log level which will be logged. error < warn < info < debug < trace. "+
+	allowedOrigins = flag.String("allowedorigins", "", "A list of allowed origins for CORS, delimited by the ; character. "+
+		"To allow any origin to connect, use *.")
+	logLevel = flag.String("loglevel", "warn", "The maximum log level which will be logged. "+
+		"error < warn < info < debug < trace. "+
 		"For example, trace will log everything, info will log info, warn, and error.")
 )
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, "Lorica: Generate an authorization header for the Summon API\nVersion 0.2.0\n\n")
+		fmt.Fprint(os.Stderr, "Lorica: A proxy for the Summon API\nVersion 0.2.1\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "  The possible environment variables:")
 
@@ -81,10 +83,15 @@ func main() {
 	}
 	l.Set(level)
 
+	// Is the apiURL parseable?
+	_, err = url.Parse(*apiURL)
+	if err != nil {
+		log.Fatalf("FATAL: Unable to parse Summon API URL.")
+	}
+
 	// Greet the user
-	l.Log(l.InfoMessage, "Starting Lorica")
 	l.Log(l.InfoMessage, "Serving on address: "+*address)
-	l.Log(l.InfoMessage, "Using API Host: "+*apiHost)
+	l.Log(l.InfoMessage, "Using API URL: "+*apiURL)
 	l.Log(l.InfoMessage, "Allowed Origins for CORS: "+*allowedOrigins)
 
 	// If any of the required flags are not set, exit.
@@ -92,8 +99,11 @@ func main() {
 		log.Fatal("FATAL: An access ID for the Summon API is required.")
 	} else if *secretKey == "" {
 		log.Fatal("FATAL: An secret key for the Summon API is required.")
-	} else if *allowedOrigins == "*" {
-		log.Fatal("FATAL: A defined list of allowed origins is required.")
+	}
+
+	// Warn if the allowedOrigins flag is empty.
+	if *allowedOrigins == "" {
+		l.Log(l.WarnMessage, "No Allowed Origins for CORS! No CORS requests will be processed.")
 	}
 
 	// HTTP handler. All requests are proxied to the Summon API
@@ -101,6 +111,7 @@ func main() {
 
 	// Run the HTTP server. If ListenAndServe returns,
 	// then there was an error.
+	l.Log(l.TraceMessage, "Starting server.")
 	log.Fatalf("FATAL: %v", http.ListenAndServe(*address, nil))
 }
 
@@ -108,110 +119,119 @@ func main() {
 // server and proxying requests to the Summon API.
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
-	// If the Origin header is set, this is a CORS request. 
+	// If the Origin header is set, this might be a CORS request.
 	if r.Header.Get("Origin") == "" {
-		if r.Method == "OPTIONS" {	
+		if r.Method == "OPTIONS" {
 			// If this is an OPTIONS request and the Access-Control-Request-Method
-			// header isn't set, it isn't accepted.  
+			// header isn't set, it isn't accepted.
 			preflightRequestMethod := r.Header.Get("Access-Control-Request-Method")
 			if preflightRequestMethod == "" {
-				sendError(w, http.StatusBadRequest, 
-					      "Access-Control-Request-Method header " +
-					      "should be set for OPTIONS request.")
-		        return
-			} 
-			// Otherwise, this is a preflight request.
-			// The Access-Control-Request-Method must be GET. 
-			if preflightRequestMethod != "GET" {
-				sendError(w, http.StatusBadRequest, 
-					      "Access-Control-Request-Method header " +
-					      "should only be GET.")
-		        return
+				sendError(w, http.StatusBadRequest,
+					"Access-Control-Request-Method header "+
+						"should be set for OPTIONS request.")
+				return
 			}
-			// The only request header we should accept from the client is
-			// x-summon-session-id
-			if r.Header.Get("Access-Control-Request-Header") != "x-summon-session-id"{
-				sendError(w, http.StatusBadRequest, 
-					      "Access-Control-Request-Header header " +
-					      "should only contain x-summon-session-id.")
-		        return
+			// Otherwise, this is a preflight request.
+			// The Access-Control-Request-Method must be GET.
+			if preflightRequestMethod != "GET" {
+				sendError(w, http.StatusBadRequest,
+					"Access-Control-Request-Method header "+
+						"should only be GET.")
+				return
+			}
+			// The Access-Control-Request-Header should not be set or
+			// only contain x-summon-session-id
+			preflightRequestHeader := r.Header.Get("Access-Control-Request-Header")
+			if preflightRequestHeader != "" && preflightRequestHeader != "x-summon-session-id" {
+				sendError(w, http.StatusBadRequest,
+					"Access-Control-Request-Header header "+
+						"should only contain x-summon-session-id.")
+				return
 			}
 			w.Header().Set("Access-Control-Allow-Methods", "GET")
 			w.Header().Set("Access-Control-Allow-Headers", "x-summon-session-id")
 			w.Header().Set("Access-Control-Max-Age", DefaultMaxAge)
-			setACAOHeader(w, r, *allowedOrigins)
-			// Write an empty body. 
+			setACAOHeader(w, r)
+
+			l.Logf(l.TraceMessage, "Sending preflight response %#v.", w.Header())
+
+			// Write an empty body.
 			w.Write([]byte{})
 			return
 		}
 
 		// Not a preflight request, so it has to be a GET request.
-		if r.Method != "GET" { 
-            sendError(w, http.StatusMethodNotAllowed, 
-					      "Only GET requests accepted.")
-		    return
+		if r.Method != "GET" {
+			sendError(w, http.StatusMethodNotAllowed,
+				"Only GET requests accepted.")
+			return
 		}
 
 		// Set the Access-Control-Allow-Origin header
-		setACAOHeader(w, r, *allowedOrigins)
+		setACAOHeader(w, r)
 
 	}
 
 	// Build the auth headers and send a request to the Summon API
 	client := new(http.Client)
-	// Build the API Request
-	apiRequestURL := url.URL{}
-	apiRequestURL.Scheme = "http"
-	apiRequestURL.Host = *apiHost
-	apiRequestURL.Path =  r.URL.Path
-    apiRequestURL.RawQuery = r.URL.RawQuery
 
-    // Create the request struct
-    apiRequest, err := http.NewRequest("GET", apiRequestURL.String(), nil)
+	// Build the API Request
+	apiRequestURL, err := url.Parse(*apiURL)
 	if err != nil {
-		sendError(w, http.StatusInternalServerError, 
-			      "Unable to build API Request.")
-	    return
+		// This should never happen, since we already parsed in main.
+		sendError(w, http.StatusInternalServerError, "Unable to parse API URL.")
+		return
+	}
+	apiRequestURL.Path = r.URL.Path
+	apiRequestURL.RawQuery = r.URL.RawQuery
+
+	// Create the request struct
+	apiRequest, err := http.NewRequest("GET", apiRequestURL.String(), nil)
+	if err != nil {
+		sendError(w, http.StatusInternalServerError,
+			"Unable to build API Request.")
+		return
 	}
 
 	// Close the connection after sending the request.
-    apiRequest.Close = true
+	apiRequest.Close = true
 
-    // Add the accept header from the client.
-    accept := r.Header.Get("Accept")
-    apiRequest.Header.Add("Accept", accept)
-    
-    // Add the timestamp
-    timestampRFC2616 := time.Now().UTC().Format(http.TimeFormat)
-    apiRequest.Header.Add("x-summon-date", timestampRFC2616)
-    
-    // Add the session id from the client, if available.
-    sessionID := r.Header.Get("x-summon-session-id") 
-    if sessionID != "" {
-        apiRequest.Header.Add("x-summon-session-id", sessionID)
-    } 
-	
+	// Add the accept header from the client.
+	accept := r.Header.Get("Accept")
+	apiRequest.Header.Add("Accept", accept)
+
+	// Add the timestamp
+	timestampRFC2616 := time.Now().UTC().Format(http.TimeFormat)
+	apiRequest.Header.Add("x-summon-date", timestampRFC2616)
+
+	// Add the session id from the client, if available.
+	sessionID := r.Header.Get("x-summon-session-id")
+	if sessionID != "" {
+		apiRequest.Header.Add("x-summon-session-id", sessionID)
+	}
+
 	// Call the helper function to build the accept header.
-	apiRequest.Header.Add("Authorization", buildHeader(apiRequestURL.Query(), 
-		                                               accept, 
-		                                               apiRequestURL.Path, 
-		                                               timestampRFC2616))
+	apiRequest.Header.Add("Authorization", buildHeader(apiRequestURL, accept, timestampRFC2616))
+
+	l.Logf(l.TraceMessage, "Sending request to Summon API %#v", apiRequest)
 
 	// Send the response to the Summon API
 	apiResp, err := client.Do(apiRequest)
 	if err != nil {
-		sendError(w, http.StatusInternalServerError, 
-			      fmt.Sprintf("Error sending API Request: %v", err))
-	    return
+		sendError(w, http.StatusInternalServerError,
+			fmt.Sprintf("Error sending API Request: %v", err))
+		return
 	}
 
-    // Send the client important Summon API headers
-	proxiedHeaders := []string {
-		"Content-Type",
-	}	
+	l.Logf(l.TraceMessage, "Received response from Summon API: %#v", apiResp)
 
-	for _, proxiedHeader := range(proxiedHeaders){
-		if apiResp.Header.Get(proxiedHeader) != ""{
+	// Send the client important Summon API headers
+	proxiedHeaders := []string{
+		"Content-Type",
+	}
+
+	for _, proxiedHeader := range proxiedHeaders {
+		if apiResp.Header.Get(proxiedHeader) != "" {
 			w.Header().Add(proxiedHeader, apiResp.Header.Get(proxiedHeader))
 		}
 	}
@@ -223,33 +243,33 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // A helper function that uses a HMAC with SHA1 to build the Authorization header.
-func buildHeader(values url.Values, accept, path, timestampRFC2616 string) string {
+func buildHeader(apiRequestURL *url.URL, accept, timestampRFC2616 string) string {
 
-	var idStringSlice []string
-	idStringSlice = append(idStringSlice, accept)
-	idStringSlice = append(idStringSlice, timestampRFC2616)
-	idStringSlice = append(idStringSlice, *apiHost)
-	idStringSlice = append(idStringSlice, path)
+	// The slice which holds the pieces of the identification string.
+	idComponents := make([]string, 5)
+	idComponents[0] = accept
+	idComponents[1] = timestampRFC2616
+	idComponents[2] = apiRequestURL.Host
+	idComponents[3] = apiRequestURL.Path
 
-	// Sort by query parameter key and concatinate.
-	var queryKeys []string
-	var queryParams []string
-	for key := range values {
-		if key != "path" && key != "accept" {
-			queryKeys = append(queryKeys, key)
+	// Build a list of query parameters
+	var queryStrings []string
+	for key, values := range apiRequestURL.Query() {
+		for _, value := range values {
+			queryStrings = append(queryStrings, key+"="+value)
 		}
 	}
-	sort.Strings(queryKeys)
-	for _, key := range queryKeys {
-		queryParams = append(queryParams,
-			fmt.Sprintf("%v=%v", key, values.Get(key)))
-	}
-	idStringSlice = append(idStringSlice, strings.Join(queryParams, "&"))
 
-	l.Logf(l.DebugMessage, "Authorizing %v", idStringSlice)
+	// Sort that list in place
+	sort.Strings(queryStrings)
+
+	// Concatinate the list with &, and add it to idComponents
+	idComponents[4] = strings.Join(queryStrings, "&")
+
+	l.Logf(l.DebugMessage, "Authorizing %v", idComponents)
 
 	// Make the id string from the slice of values
-	idString := strings.Join(idStringSlice, "\n") + "\n"
+	idString := strings.Join(idComponents, "\n") + "\n"
 
 	// Hash using sha1, then base64 encode.
 	hmacsha1 := hmac.New(sha1.New, []byte(*secretKey))
@@ -311,9 +331,15 @@ func overrideUnsetFlagsFromEnvironmentVariables() {
 }
 
 // Set the Access-Control-Allow-Origin header
-func setACAOHeader(w http.ResponseWriter, r *http.Request, allowedOrigins string) {
-	if allowedOrigins != "" {
-		possibleOrigins := strings.Split(allowedOrigins, ";")
+func setACAOHeader(w http.ResponseWriter, r *http.Request) {
+
+	if *allowedOrigins == "*" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		return
+	}
+
+	if *allowedOrigins != "" {
+		possibleOrigins := strings.Split(*allowedOrigins, ";")
 		for _, okOrigin := range possibleOrigins {
 			okOrigin = strings.TrimSpace(okOrigin)
 			if (okOrigin != "") && (okOrigin == r.Header.Get("Origin")) {
