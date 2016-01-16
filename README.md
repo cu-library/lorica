@@ -19,7 +19,6 @@ In future, a rate limiter could be added to this server. Pull requests welcome!
 
 ```
 Lorica: A proxy for the Summon API
-Version 0.2.1
 
   -accessid string
         Access ID
