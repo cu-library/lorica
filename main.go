@@ -26,19 +26,19 @@ import (
 )
 
 const (
-	// The prefix for all the environment variables
+	// EnvPrefix is the prefix for the environment variables.
 	EnvPrefix string = "LORICA_"
 
-	// The default address to serve from
+	// DefaultAddress is the default address to serve from.
 	DefaultAddress string = ":8877"
 
-	// The default log level
+	// DefaultLogLevel is the default log level.
 	DefaultLogLevel = "WARN"
 
-	// The default Summon API URL
+	// DefaultSummonAPIURL is the default Summon API URL.
 	DefaultSummonAPIURL = "http://api.summon.serialssolutions.com"
 
-	// The default number of seconds for the Access-Control-Max-Age header
+	// DefaultMaxAge is the default number of seconds for the Access-Control-Max-Age header.
 	DefaultMaxAge = "604800"
 )
 
@@ -69,7 +69,7 @@ func init() {
 
 func main() {
 
-	// Process the flags
+	// Process the flags.
 	flag.Parse()
 
 	// If any flags have not been set, see if there are
@@ -89,7 +89,7 @@ func main() {
 		log.Fatalf("FATAL: Unable to parse Summon API URL.")
 	}
 
-	// Greet the user
+	// Greet the user.
 	l.Log(l.InfoMessage, "Serving on address: "+*address)
 	l.Log(l.InfoMessage, "Using API URL: "+*apiURL)
 	l.Log(l.InfoMessage, "Allowed Origins for CORS: "+*allowedOrigins)
@@ -106,7 +106,7 @@ func main() {
 		l.Log(l.WarnMessage, "No Allowed Origins for CORS! No CORS requests will be processed.")
 	}
 
-	// HTTP handler. All requests are proxied to the Summon API
+	// HTTP handler. All requests are proxied to the Summon API.
 	http.HandleFunc("/", proxyHandler)
 
 	// Run the HTTP server. If ListenAndServe returns,
@@ -167,15 +167,15 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Set the Access-Control-Allow-Origin header
+		// Set the Access-Control-Allow-Origin header.
 		setACAOHeader(w, r)
 
 	}
 
-	// Build the auth headers and send a request to the Summon API
+	// Build the auth headers and send a request to the Summon API.
 	client := new(http.Client)
 
-	// Build the API Request
+	// Build the API Request.
 	apiRequestURL, err := url.Parse(*apiURL)
 	if err != nil {
 		// This should never happen, since we already parsed in main.
@@ -185,7 +185,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	apiRequestURL.Path = r.URL.Path
 	apiRequestURL.RawQuery = r.URL.RawQuery
 
-	// Create the request struct
+	// Create the request struct.
 	apiRequest, err := http.NewRequest("GET", apiRequestURL.String(), nil)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError,
@@ -215,7 +215,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	l.Logf(l.TraceMessage, "Sending request to Summon API %#v", apiRequest)
 
-	// Send the response to the Summon API
+	// Send the response to the Summon API.
 	apiResp, err := client.Do(apiRequest)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError,
@@ -254,7 +254,7 @@ func buildHeader(apiRequestURL *url.URL, accept, timestampRFC2616 string) string
 	idComponents[2] = apiRequestURL.Host
 	idComponents[3] = apiRequestURL.Path
 
-	// Build a list of query parameters
+	// Build a list of query parameters.
 	var queryStrings []string
 	for key, values := range apiRequestURL.Query() {
 		for _, value := range values {
@@ -262,15 +262,15 @@ func buildHeader(apiRequestURL *url.URL, accept, timestampRFC2616 string) string
 		}
 	}
 
-	// Sort that list in place
+	// Sort that list in place.
 	sort.Strings(queryStrings)
 
-	// Concatinate the list with &, and add it to idComponents
+	// Concatinate the list with &, and add it to idComponents.
 	idComponents[4] = strings.Join(queryStrings, "&")
 
 	l.Logf(l.DebugMessage, "Authorizing %v", idComponents)
 
-	// Make the id string from the slice of values
+	// Make the id string from the slice of values.
 	idString := strings.Join(idComponents, "\n") + "\n"
 
 	// Hash using sha1, then base64 encode.
@@ -278,7 +278,7 @@ func buildHeader(apiRequestURL *url.URL, accept, timestampRFC2616 string) string
 	io.WriteString(hmacsha1, idString)
 	encodedHash := base64.StdEncoding.EncodeToString(hmacsha1.Sum(nil))
 
-	// Build the final auth header
+	// Build the final auth header.
 	return fmt.Sprintf("Summon %v;%v", *accessID, encodedHash)
 }
 
@@ -310,7 +310,7 @@ func overrideUnsetFlagsFromEnvironmentVariables() {
 
 	// Loop through our list of unset flags.
 	// We don't care about the values in our map, only the keys.
-	for k, _ := range listOfUnsetFlags {
+	for k := range listOfUnsetFlags {
 
 		// Build the corresponding environment variable name for each flag.
 		uppercaseName := strings.ToUpper(k.Name)

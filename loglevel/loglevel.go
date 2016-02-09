@@ -2,7 +2,7 @@
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE file.
 
-// This package provides a way to filter log messages
+// Package loglevel provides a way to filter log messages
 // depending on their log level.
 package loglevel
 
@@ -13,8 +13,11 @@ import (
 	"sync"
 )
 
+// LogLevel defines a hirarchy of levels for classifing
+// log messages.
 type LogLevel int
 
+// An enumeration of LogLevels.
 const (
 	ErrorMessage LogLevel = iota
 	WarnMessage
@@ -34,6 +37,7 @@ var logLevelToString = map[LogLevel]string{
 var logMessageLevel = ErrorMessage
 var logMessageLevelMutex = new(sync.RWMutex)
 
+// Set the package's message level. 
 func Set(level LogLevel) {
 	logMessageLevelMutex.Lock()
 	defer logMessageLevelMutex.Unlock()
@@ -41,7 +45,10 @@ func Set(level LogLevel) {
 	logMessageLevel = level
 }
 
-//Log a message if the level is below or equal to the set LogMessageLevel
+// Log a message if the messagelevel is below or equal to the set LogLevel.
+// For example, if the package is set to InfoMessage, then ErrorMessage, 
+// WarnMessage, and InfoMessage would be printed, but 
+// DebugMessage and TraceMessage would not be. 
 func Log(messagelevel LogLevel, message interface{}) {
 	logMessageLevelMutex.RLock()
 	defer logMessageLevelMutex.RUnlock()
@@ -51,14 +58,18 @@ func Log(messagelevel LogLevel, message interface{}) {
 	}
 }
 
+// Logf is a wrapper around Log(). It first formats the log message 
+// using the provided format string. 
 func Logf(messagelevel LogLevel, format string, a ...interface{}) {
 	Log(messagelevel, fmt.Sprintf(format, a...))
 }
 
+// Return the string representation of the LogLevel.
 func (level LogLevel) String() string {
 	return logLevelToString[level]
 }
 
+// ParseLogLevel parses a string, returns a log level. 
 func ParseLogLevel(parseThis string) (LogLevel, error) {
 	for logLevel, logLevelString := range logLevelToString {
 		if logLevelString == strings.ToUpper(parseThis) {
