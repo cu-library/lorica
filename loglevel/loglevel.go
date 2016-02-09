@@ -37,7 +37,7 @@ var logLevelToString = map[LogLevel]string{
 var logMessageLevel = ErrorMessage
 var logMessageLevelMutex = new(sync.RWMutex)
 
-// Set the package's message level. 
+// Set the package's message level.
 func Set(level LogLevel) {
 	logMessageLevelMutex.Lock()
 	defer logMessageLevelMutex.Unlock()
@@ -46,9 +46,9 @@ func Set(level LogLevel) {
 }
 
 // Log a message if the messagelevel is below or equal to the set LogLevel.
-// For example, if the package is set to InfoMessage, then ErrorMessage, 
-// WarnMessage, and InfoMessage would be printed, but 
-// DebugMessage and TraceMessage would not be. 
+// For example, if the package is set to InfoMessage, then ErrorMessage,
+// WarnMessage, and InfoMessage would be printed, but
+// DebugMessage and TraceMessage would not be.
 func Log(messagelevel LogLevel, message interface{}) {
 	logMessageLevelMutex.RLock()
 	defer logMessageLevelMutex.RUnlock()
@@ -58,8 +58,8 @@ func Log(messagelevel LogLevel, message interface{}) {
 	}
 }
 
-// Logf is a wrapper around Log(). It first formats the log message 
-// using the provided format string. 
+// Logf is a wrapper around Log(). It first formats the log message
+// using the provided format string.
 func Logf(messagelevel LogLevel, format string, a ...interface{}) {
 	Log(messagelevel, fmt.Sprintf(format, a...))
 }
@@ -69,7 +69,7 @@ func (level LogLevel) String() string {
 	return logLevelToString[level]
 }
 
-// ParseLogLevel parses a string, returns a log level. 
+// ParseLogLevel parses a string, returns a log level.
 func ParseLogLevel(parseThis string) (LogLevel, error) {
 	for logLevel, logLevelString := range logLevelToString {
 		if logLevelString == strings.ToUpper(parseThis) {
