@@ -1,5 +1,6 @@
 # lorica
 [![Build Status](https://travis-ci.org/cu-library/lorica.svg)](https://travis-ci.org/cu-library/lorica)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cu-library/lorica)](https://goreportcard.com/report/github.com/cu-library/lorica)
 
 *A proxy for the Summon API.*
 
