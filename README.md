@@ -13,9 +13,19 @@ Similar to work done by [Jonathan Rochkind](https://bibwild.wordpress.com/2013/0
 * It supports CORS requests, including properly handling preflight OPTIONS requests. 
 * It authorizes requests to the API on behalf of the client. 
 
+Requests to Lorica will be authorized and sent to the Summon API. For example, if Lorica is running on localhost at port 8877, accessing:
+
+`http://localhost:8877/2.0.0/search/ping`
+
+will return the response from 
+
+`http://api.summon.serialssolutions.com/2.0.0/search/ping`
+
 In production, this proxy should be behind an nginx server which imposes rate limiting. This is done so that a malicious client couldn't effectively scrape data from Summon using the provided credentials.
 
 In future, a rate limiter could be added to this server. Pull requests welcome! 
+
+Lorica is designed with http://12factor.net/ in mind. 
 
 ```
 Lorica: A proxy for the Summon API
