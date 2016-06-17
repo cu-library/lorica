@@ -284,6 +284,7 @@ func buildHeader(apiRequestURL *url.URL, accept, timestampRFC2616 string) string
 
 // Send an error to the client, and log the error.
 func sendError(w http.ResponseWriter, statuscode int, message string) {
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(statuscode)
 	fmt.Fprintf(w, "<html><head></head><body><pre>%v %v - %v</pre></body></html>",
