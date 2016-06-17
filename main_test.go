@@ -15,7 +15,7 @@ import (
 	"os"
 	"strings"
 	"testing"
-        "time"
+	"time"
 )
 
 func init() {
@@ -203,13 +203,12 @@ func TestProxyHanderAPICall(t *testing.T) {
 
 }
 
-
 // Mock the Summon API, and test that the timeout works as expected.
 func TestProxyHanderTimeoutAPICall(t *testing.T) {
 
 	// The mock of the Sierra API.
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        	time.Sleep(2 * time.Second)  
+		time.Sleep(2 * time.Second)
 		fmt.Fprintln(w, "")
 	}))
 	defer ts.Close()
@@ -219,9 +218,9 @@ func TestProxyHanderTimeoutAPICall(t *testing.T) {
 	*apiURL = ts.URL
 	defer func() { *apiURL = oldAPIURL }()
 
-        oldTimeout := *timeout
-        *timeout = 1 
-        defer func() { *timeout = oldTimeout }()
+	oldTimeout := *timeout
+	*timeout = 1
+	defer func() { *timeout = oldTimeout }()
 
 	// The request from the client.
 	req, err := http.NewRequest("GET", "/", nil)
@@ -231,12 +230,12 @@ func TestProxyHanderTimeoutAPICall(t *testing.T) {
 
 	// The response to the client.
 	w := httptest.NewRecorder()
- 
+
 	proxyHandler(w, req)
 
-        if w.Code != 500 {
+	if w.Code != 500 {
 		t.Fatal("Request to slow backend did not time out.")
-        }
+	}
 
 }
 
