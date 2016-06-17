@@ -43,6 +43,8 @@ Lorica: A proxy for the Summon API
         Secret Key
   -summonapi string
         Summon API URL. (default "http://api.summon.serialssolutions.com")
+  -timeout int
+        The number of seconds to wait for a response from Summon. (default 10)
   The possible environment variables:
   LORICA_ACCESSID
   LORICA_ADDRESS
@@ -50,6 +52,7 @@ Lorica: A proxy for the Summon API
   LORICA_LOGLEVEL
   LORICA_SECRETKEY
   LORICA_SUMMONAPI
+  LORICA_TIMEOUT
 
  ```
 

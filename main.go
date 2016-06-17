@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+        "strconv"
 )
 
 const (
@@ -40,6 +41,9 @@ const (
 
 	// DefaultMaxAge is the default number of seconds for the Access-Control-Max-Age header.
 	DefaultMaxAge = "604800"
+
+        // DefaultSummonAPITimeout is the number of seconds this service will wait for a response from Summon.
+        DefaultSummonAPITimeout = 10
 )
 
 var (
@@ -48,15 +52,16 @@ var (
 	accessID       = flag.String("accessid", "", "Access ID")
 	secretKey      = flag.String("secretkey", "", "Secret Key")
 	allowedOrigins = flag.String("allowedorigins", "", "A list of allowed origins for CORS, delimited by the ; character. "+
-		"To allow any origin to connect, use *.")
-	logLevel = flag.String("loglevel", "warn", "The maximum log level which will be logged. "+
-		"error < warn < info < debug < trace. "+
-		"For example, trace will log everything, info will log info, warn, and error.")
+							   "To allow any origin to connect, use *.")
+	logLevel       = flag.String("loglevel", "warn", "The maximum log level which will be logged. "+
+							 "error < warn < info < debug < trace. "+
+							 "For example, trace will log everything, info will log info, warn, and error.")
+        timeout        = flag.Int("timeout", DefaultSummonAPITimeout, "The number of seconds to wait for a response from Summon.")
 )
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, "Lorica: A proxy for the Summon API\nVersion 0.2.2\n\n")
+		fmt.Fprint(os.Stderr, "Lorica: A proxy for the Summon API\nVersion 0.3.0\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "  The possible environment variables:")
 
@@ -93,6 +98,7 @@ func main() {
 	l.Log(l.InfoMessage, "Serving on address: "+*address)
 	l.Log(l.InfoMessage, "Using API URL: "+*apiURL)
 	l.Log(l.InfoMessage, "Allowed Origins for CORS: "+*allowedOrigins)
+	l.Log(l.InfoMessage, "Summon API Timeout: "+strconv.Itoa(*timeout)+" seconds")
 
 	// If any of the required flags are not set, exit.
 	if *accessID == "" {
@@ -174,6 +180,9 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Build the auth headers and send a request to the Summon API.
 	client := new(http.Client)
+
+        // Add a timeout to the http client
+        client.Timeout = time.Duration(*timeout) * time.Second
 
 	// Build the API Request.
 	apiRequestURL, err := url.Parse(*apiURL)
