@@ -174,11 +174,11 @@ func TestProxyHanderAPICall(t *testing.T) {
 		}
 		// The request should have an x-summon-date header
 		if r.Header.Get("x-summon-date") == "" {
-			t.Error("Sierra API didn't recieve x-summon-date header.")
+			t.Error("Sierra API didn't receive x-summon-date header.")
 		}
 		// The request should have an Authorization header
 		if r.Header.Get("Authorization") == "" {
-			t.Error("Sierra API didn't recieve Authorization header.")
+			t.Error("Sierra API didn't receive Authorization header.")
 		}
 
 		fmt.Fprintln(w, "")
