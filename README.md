@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.org/cu-library/lorica.svg)](https://travis-ci.org/cu-library/lorica)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cu-library/lorica)](https://goreportcard.com/report/github.com/cu-library/lorica)
 
-*A proxy for the Summon API.*
+*An authenticating proxy for the Summon API.*
 
 The Summon API has two problems which make it difficult to use with client-side javascript applications: 
 
@@ -22,14 +22,12 @@ will return the response from
 
 `http://api.summon.serialssolutions.com/2.0.0/search/ping`
 
-In production, this proxy should be behind an nginx server which imposes rate limiting. This is done so that a malicious client couldn't effectively scrape data from Summon using the provided credentials.
-
-In future, a rate limiter could be added to this server. Pull requests welcome! 
+By default, Lorica runs with a rate limiter, to disuade malicious users from scraping the Summon API using the provided credentials.
 
 Lorica is designed with http://12factor.net/ in mind. 
 
 ```
-Lorica: A proxy for the Summon API
+Lorica: An authenticating proxy for the Summon API
 
   -accessid string
         Access ID
@@ -37,8 +35,14 @@ Lorica: A proxy for the Summon API
         Address for the server to bind on. (default ":8877")
   -allowedorigins string
         A list of allowed origins for CORS, delimited by the ; character. To allow any origin to connect, use *.
+  -checkproxyheaders
+        Have the rate limiter use the IP address from the X-Forwarded-For and X-Real-IP header first. You may need this if you are running Lorica behind a proxy.
   -loglevel string
         The maximum log level which will be logged. error < warn < info < debug < trace. For example, trace will log everything, info will log info, warn, and error. (default "warn")
+  -maxrequests int
+        The maximum number of requests accepted from one client per one second interval. (default 1)
+  -ratelimit
+        Enable and disable rate limiting. (default true)
   -secretkey string
         Secret Key
   -summonapi string
@@ -49,24 +53,11 @@ Lorica: A proxy for the Summon API
   LORICA_ACCESSID
   LORICA_ADDRESS
   LORICA_ALLOWEDORIGINS
+  LORICA_CHECKPROXYHEADERS
   LORICA_LOGLEVEL
+  LORICA_MAXREQUESTS
+  LORICA_RATELIMIT
   LORICA_SECRETKEY
   LORICA_SUMMONAPI
   LORICA_TIMEOUT
-
- ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```
