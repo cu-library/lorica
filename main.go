@@ -70,7 +70,7 @@ var (
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, "Lorica: An authenticating proxy for the Summon API\nVersion 0.4.0\n\n")
+		fmt.Fprint(os.Stderr, "Lorica: An authenticating proxy for the Summon API\nVersion 0.4.1\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "  The possible environment variables:")
 
