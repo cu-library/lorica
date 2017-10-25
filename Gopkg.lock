@@ -4,26 +4,26 @@
 [[projects]]
   branch = "master"
   name = "github.com/didip/tollbooth"
-  packages = [".","config","errors","libstring"]
-  revision = "c62d95b8416e0a966a4b1483bce7e61a3dfead01"
+  packages = [".","errors","libstring","limiter"]
+  revision = "d6884c7b925f483d9039d61435257afb3a40306f"
 
 [[projects]]
   name = "github.com/patrickmn/go-cache"
   packages = ["."]
-  revision = "1881a9bccb818787f68c52bfba648c6cf34c34fa"
-  version = "v2.0.0"
+  revision = "a3647f8e31d79543b2d0f0ae2fe5c379d72cedc0"
+  version = "v2.1.0"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context"]
-  revision = "1c05540f6879653db88113bc4a2b70aec4bd491f"
+  revision = "4b14673ba32bee7f5ac0f990a48f033919fd418b"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/time"
   packages = ["rate"]
-  revision = "8be79e1e0910c292df4e79c241bb7e8f7e725959"
+  revision = "6dc17368e09b0e8634d71cac8168d853e869a0c7"
 
 [solve-meta]
   analyzer-name = "dep"

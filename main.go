@@ -70,7 +70,7 @@ var (
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, "Lorica: An authenticating proxy for the Summon API\nVersion 0.4.2\n\n")
+		fmt.Fprint(os.Stderr, "Lorica: An authenticating proxy for the Summon API\nVersion 0.4.3\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "  The possible environment variables:")
 
@@ -131,9 +131,9 @@ func main() {
 
 	// HTTP handler. All requests are proxied to the Summon API.
 	if *rateLimit {
-		limiter := tollbooth.NewLimiter(*maxRequests, time.Second)
+		limiter := tollbooth.NewLimiter(*maxRequests, nil)
 		if *checkProxyHeaders {
-			limiter.IPLookups = []string{"X-Forwarded-For", "X-Real-IP", "RemoteAddr"}
+			limiter.SetIPLookups([]string{"X-Forwarded-For", "X-Real-IP", "RemoteAddr"})
 		}
 		http.Handle("/", tollbooth.LimitFuncHandler(limiter, proxyHandler))
 	} else {
