@@ -1,7 +1,12 @@
 language: go
 go: 
-  - 1.x
+  - stable
+  
+install: true
 
+before_script:
+  - go vet ./...
+  
 script:
  - go test -v .
  - go test -v ./loglevel
