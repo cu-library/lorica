@@ -5,7 +5,8 @@ go:
 install: true
 
 before_script:
-  - go vet ./...
+  - go vet .
+  - go vet ./loglevel
   
 script:
  - go test -v .
