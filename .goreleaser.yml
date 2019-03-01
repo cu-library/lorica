@@ -1,15 +1,21 @@
 builds:
-  - goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-    env:
-      - CGO_ENABLED=0
+  - 
+   goos: 
+     - freebsd
+     - windows
+     - linux
+     - darwin
+   goarch:
+     - amd64
+     - arm
+     - arm64
+     - '386'
+   goarm:
+     - 6
+     - 7
 archive:
   replacements:
-    darwin: macOS
+    darwin: macOS 
     amd64: x86_64
   wrap_in_directory: true
   format_overrides:
@@ -20,6 +26,7 @@ checksum:
 snapshot:
   name_template: "{{ .Tag }}-next"
 changelog:
+  sort: asc
   filters:
     exclude:
     - '^docs:'
