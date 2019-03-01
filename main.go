@@ -38,7 +38,7 @@ const (
 	DefaultLogLevel = "WARN"
 
 	// DefaultSummonAPIURL is the default Summon API URL.
-	DefaultSummonAPIURL = "http://api.summon.serialssolutions.com"
+	DefaultSummonAPIURL = "https://api.summon.serialssolutions.com"
 
 	// DefaultMaxAge is the default number of seconds for the Access-Control-Max-Age header.
 	DefaultMaxAge = "604800"
