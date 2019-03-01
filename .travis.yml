@@ -1,6 +1,9 @@
 language: go
 go: 
   - stable
+
+env:
+  - GO11MODULE=on
   
 install: true
 

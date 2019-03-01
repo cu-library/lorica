@@ -62,15 +62,18 @@ var (
 		"For example, trace will log everything, info will log info, warn, and error.")
 	timeout     = flag.Int("timeout", DefaultSummonAPITimeout, "The number of seconds to wait for a response from Summon.")
 	rateLimit   = flag.Bool("ratelimit", true, "Enable and disable rate limiting.")
-	maxRequests = flag.Int64("maxrequests", DefaultMaxRequestsPerSecond, "The maximum number of requests accepted from "+
+	maxRequests = flag.Float64("maxrequests", DefaultMaxRequestsPerSecond, "The maximum number of requests accepted from "+
 		"one client per one second interval.")
 	checkProxyHeaders = flag.Bool("checkproxyheaders", false, "Have the rate limiter use the IP address from the "+
 		"X-Forwarded-For and X-Real-IP header first. You may need this if you are running Lorica behind a proxy.")
+
+	// A version flag, which should be overwritten when building using ldflags.
+	version = "devel"
 )
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, "Lorica: An authenticating proxy for the Summon API\nVersion 0.4.3\n\n")
+		fmt.Fprintf(os.Stderr, "Lorica: An authenticating proxy for the Summon API\nVersion %v\n\n", version)
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "  The possible environment variables:")
 
@@ -108,14 +111,6 @@ func main() {
 	l.Log(l.InfoMessage, "Using API URL: "+*apiURL)
 	l.Log(l.InfoMessage, "Allowed Origins for CORS: "+*allowedOrigins)
 	l.Log(l.InfoMessage, "Summon API Timeout: "+strconv.Itoa(*timeout)+" seconds")
-	if *rateLimit {
-		l.Log(l.InfoMessage, "Rate Limiting Enabled: Max "+strconv.FormatInt(*maxRequests, 10)+" request(s) per second.")
-		if *checkProxyHeaders {
-			l.Log(l.InfoMessage, "Using client IP from headers.")
-		}
-	} else {
-		l.Log(l.InfoMessage, "Rate Limiting Disabled!")
-	}
 
 	// If any of the required flags are not set, exit.
 	if *accessID == "" {
@@ -131,12 +126,17 @@ func main() {
 
 	// HTTP handler. All requests are proxied to the Summon API.
 	if *rateLimit {
+		l.Log(l.InfoMessage, "Rate Limiting Enabled: Max "+strconv.FormatFloat(*maxRequests, 'f', -1, 64)+" request(s) per second.")
+		if *checkProxyHeaders {
+			l.Log(l.InfoMessage, "Using client IP from headers.")
+		}
 		limiter := tollbooth.NewLimiter(*maxRequests, nil)
 		if *checkProxyHeaders {
 			limiter.SetIPLookups([]string{"X-Forwarded-For", "X-Real-IP", "RemoteAddr"})
 		}
 		http.Handle("/", tollbooth.LimitFuncHandler(limiter, proxyHandler))
 	} else {
+		l.Log(l.InfoMessage, "Rate Limiting Disabled!")
 		http.HandleFunc("/", proxyHandler)
 	}
 
