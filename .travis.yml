@@ -3,7 +3,7 @@ go:
   - stable
 
 env:
-  - GO11MODULE=on
+  - GO111MODULE=on
   
 install: true
 
